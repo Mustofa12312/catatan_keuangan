@@ -6,6 +6,7 @@ import '../widgets/kartu_penabung.dart';
 import 'detail_penabung_screen.dart';
 import 'tambah_penabung_screen.dart';
 import 'tambah_transaksi_screen.dart';
+import 'pengaturan_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -210,27 +211,51 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     color: const Color(0xFF8899BB), fontSize: 12)),
           ],
         ),
-        GestureDetector(
-          onTap: _tambahPenabung,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF4F8EF7), Color(0xFF2563EB)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () async {
+                final reload = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PengaturanScreen()),
+                );
+                if (reload == true) _loadData();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A2840),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF2A3A50)),
+                ),
+                child: const Icon(Icons.settings_outlined,
+                    color: Color(0xFF8899BB), size: 20),
               ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                    color: const Color(0xFF4F8EF7).withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4)),
-              ],
             ),
-            child: const Icon(Icons.person_add_alt_1_rounded,
-                color: Colors.white, size: 20),
-          ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _tambahPenabung,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F8EF7), Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                        color: const Color(0xFF4F8EF7).withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: const Icon(Icons.person_add_alt_1_rounded,
+                    color: Colors.white, size: 20),
+              ),
+            ),
+          ],
         ),
       ],
     );
