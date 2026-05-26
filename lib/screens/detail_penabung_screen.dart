@@ -10,6 +10,7 @@ import '../utils/pdf_helper.dart';
 import '../widgets/item_transaksi.dart';
 import 'tambah_transaksi_screen.dart';
 import 'tambah_penabung_screen.dart';
+import 'transfer_screen.dart';
 
 class DetailPenabungScreen extends StatefulWidget {
   final int penabungId;
@@ -85,6 +86,18 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
         namaPenabung: _penabung?.nama ?? widget.namaPenabung,
         transaksi: t,
         saldoSaatIni: _saldo,
+      )),
+    );
+    if (result == true) _loadData();
+  }
+
+  Future<void> _transferTransaksi() async {
+    final result = await Navigator.push(
+      context,
+      _slideRoute(TransferScreen(
+        senderId: widget.penabungId,
+        senderName: _penabung?.nama ?? widget.namaPenabung,
+        senderSaldo: _saldo,
       )),
     );
     if (result == true) _loadData();
@@ -266,13 +279,22 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                             onTap: () => _tambahTransaksi('setor'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _TombolAksi(
                             label: 'Ambil',
                             icon: Icons.north_rounded,
                             color: const Color(0xFFEF9A9A),
                             onTap: () => _tambahTransaksi('ambil'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _TombolAksi(
+                            label: 'Kirim',
+                            icon: Icons.send_rounded,
+                            color: const Color(0xFFFFA726),
+                            onTap: _transferTransaksi,
                           ),
                         ),
                       ],
