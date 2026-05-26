@@ -4,6 +4,7 @@ import '../database/database_helper.dart';
 import '../models/transaksi.dart';
 import '../widgets/item_transaksi.dart';
 import 'tambah_transaksi_screen.dart';
+import 'detail_penabung_screen.dart';
 
 class RiwayatScreen extends StatefulWidget {
   const RiwayatScreen({super.key});
@@ -16,7 +17,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   final _db = DatabaseHelper.instance;
   final _searchCtrl = TextEditingController();
   List<Transaksi> _transaksi = [];
-  String _filter = 'semua'; // semua | masuk | keluar
+  String _filter = 'semua'; // semua | setor | ambil
   bool _loading = true;
 
   @override
@@ -36,7 +37,6 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
     final List<Transaksi> data = keyword.isEmpty
         ? await _db.getAllTransaksi()
         : await _db.searchTransaksi(keyword);
-
     setState(() {
       _transaksi = _filter == 'semua'
           ? data
@@ -48,33 +48,62 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
   Future<void> _editTransaksi(Transaksi t) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => TambahTransaksiScreen(transaksi: t)),
+      MaterialPageRoute(
+        builder: (_) => TambahTransaksiScreen(
+          penabungId: t.penabungId,
+          namaPenabung: t.namaPenabung ?? '',
+          transaksi: t,
+        ),
+      ),
     );
     if (result == true) _loadData();
   }
 
   Future<void> _hapusTransaksi(int id) async {
-    final konfirmasi = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF1E2A3A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Transaksi', style: TextStyle(color: Colors.white)),
-        content: const Text('Yakin ingin menghapus transaksi ini?', style: TextStyle(color: Colors.white70)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Hapus Transaksi',
+            style: TextStyle(color: Colors.white)),
+        content: const Text('Yakin ingin menghapus transaksi ini?',
+            style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal', style: TextStyle(color: Color(0xFF8899AA)))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal',
+                style: TextStyle(color: Color(0xFF8899AA))),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Hapus'),
           ),
         ],
       ),
     );
-    if (konfirmasi == true) {
+    if (ok == true) {
       await _db.deleteTransaksi(id);
       _loadData();
     }
+  }
+
+  void _bukaDetailPenabung(Transaksi t) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetailPenabungScreen(
+          penabungId: t.penabungId,
+          namaPenabung: t.namaPenabung ?? '',
+        ),
+      ),
+    ).then((_) => _loadData());
   }
 
   @override
@@ -85,42 +114,91 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         backgroundColor: const Color(0xFF0D1B2A),
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Text('Riwayat Transaksi', style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+        title: Text(
+          'Semua Transaksi',
+          style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF8899AA)),
+            onPressed: _loadData,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Search bar
+          // Search
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: TextField(
               controller: _searchCtrl,
               style: const TextStyle(color: Colors.white),
               onChanged: (_) => _loadData(),
               decoration: InputDecoration(
-                hintText: 'Cari nama, kategori, catatan...',
-                hintStyle: const TextStyle(color: Color(0xFF8899AA), fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF8899AA), size: 20),
+                hintText: 'Cari nama penabung atau catatan...',
+                hintStyle:
+                    const TextStyle(color: Color(0xFF8899AA), fontSize: 13),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: Color(0xFF8899AA), size: 20),
                 suffixIcon: _searchCtrl.text.isNotEmpty
-                    ? IconButton(icon: const Icon(Icons.clear_rounded, color: Color(0xFF8899AA), size: 18), onPressed: () { _searchCtrl.clear(); _loadData(); })
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded,
+                            color: Color(0xFF8899AA), size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          _loadData();
+                        })
                     : null,
                 filled: true,
                 fillColor: const Color(0xFF1E2A3A),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
               ),
             ),
           ),
 
-          // Filter chips
+          // Filter
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Row(
               children: [
-                _FilterChip(label: 'Semua', aktif: _filter == 'semua', onTap: () { setState(() => _filter = 'semua'); _loadData(); }),
+                _FilterChip(
+                    label: 'Semua',
+                    aktif: _filter == 'semua',
+                    onTap: () {
+                      setState(() => _filter = 'semua');
+                      _loadData();
+                    }),
                 const SizedBox(width: 8),
-                _FilterChip(label: 'Masuk', aktif: _filter == 'masuk', color: const Color(0xFF4CAF50), onTap: () { setState(() => _filter = 'masuk'); _loadData(); }),
+                _FilterChip(
+                    label: 'Setor',
+                    aktif: _filter == 'setor',
+                    color: const Color(0xFF4CAF50),
+                    onTap: () {
+                      setState(() => _filter = 'setor');
+                      _loadData();
+                    }),
                 const SizedBox(width: 8),
-                _FilterChip(label: 'Keluar', aktif: _filter == 'keluar', color: const Color(0xFFE53935), onTap: () { setState(() => _filter = 'keluar'); _loadData(); }),
+                _FilterChip(
+                    label: 'Ambil',
+                    aktif: _filter == 'ambil',
+                    color: const Color(0xFFE57373),
+                    onTap: () {
+                      setState(() => _filter = 'ambil');
+                      _loadData();
+                    }),
+                const Spacer(),
+                Text(
+                  '${_transaksi.length} transaksi',
+                  style: const TextStyle(
+                      color: Color(0xFF8899AA), fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -128,27 +206,37 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
           // List
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF1565C0)))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: Color(0xFF1565C0)))
                 : _transaksi.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.receipt_long_outlined, color: Colors.white24, size: 60),
+                            const Icon(Icons.receipt_long_outlined,
+                                color: Colors.white24, size: 60),
                             const SizedBox(height: 12),
-                            Text('Tidak ada transaksi', style: GoogleFonts.poppins(color: Colors.white38, fontSize: 14)),
+                            Text('Tidak ada transaksi',
+                                style: GoogleFonts.poppins(
+                                    color: Colors.white38, fontSize: 14)),
                           ],
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 0, 16, 80),
                         itemCount: _transaksi.length,
                         itemBuilder: (ctx, i) {
                           final t = _transaksi[i];
-                          return ItemTransaksi(
-                            transaksi: t,
-                            onEdit: () => _editTransaksi(t),
-                            onDelete: () => _hapusTransaksi(t.id!),
+                          return GestureDetector(
+                            onLongPress: () => _bukaDetailPenabung(t),
+                            child: ItemTransaksi(
+                              transaksi: t,
+                              tampilkanNama: true,
+                              onEdit: () => _editTransaksi(t),
+                              onDelete: () => _hapusTransaksi(t.id!),
+                            ),
                           );
                         },
                       ),
@@ -178,11 +266,17 @@ class _FilterChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: aktif ? color.withValues(alpha: 0.15) : const Color(0xFF1E2A3A),
+          color: aktif
+              ? color.withValues(alpha: 0.15)
+              : const Color(0xFF1E2A3A),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: aktif ? color.withValues(alpha: 0.5) : const Color(0xFF2A3A4A)),
+          border: Border.all(
+              color: aktif
+                  ? color.withValues(alpha: 0.5)
+                  : const Color(0xFF2A3A4A)),
         ),
         child: Text(
           label,
