@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'screens/home_screen.dart';
 import 'screens/riwayat_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +38,7 @@ class TabunganApp extends StatelessWidget {
         useMaterial3: true,
         splashFactory: InkRipple.splashFactory,
       ),
-      home: const MainNavigation(),
+      home: const SplashScreen(),
     );
   }
 }
