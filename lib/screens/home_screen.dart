@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         transitionsBuilder: (ctx2, anim2, secAnim, child) => SlideTransition(
           position:
               Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
-            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+            CurvedAnimation(parent: anim2, curve: Curves.easeOutCubic),
           ),
           child: child,
         ),

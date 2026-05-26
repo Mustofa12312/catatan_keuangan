@@ -72,7 +72,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         transitionsBuilder: (ctx2, anim2, secAnim, child) => SlideTransition(
           position: Tween(begin: const Offset(1, 0), end: Offset.zero)
               .animate(CurvedAnimation(
-                  parent: anim, curve: Curves.easeOutCubic)),
+                  parent: anim2, curve: Curves.easeOutCubic)),
           child: child,
         ),
         transitionDuration: const Duration(milliseconds: 300),
@@ -97,7 +97,7 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         transitionsBuilder: (ctx2, anim2, secAnim, child) => SlideTransition(
           position: Tween(begin: const Offset(1, 0), end: Offset.zero)
               .animate(CurvedAnimation(
-                  parent: anim, curve: Curves.easeOutCubic)),
+                  parent: anim2, curve: Curves.easeOutCubic)),
           child: child,
         ),
         transitionDuration: const Duration(milliseconds: 300),
