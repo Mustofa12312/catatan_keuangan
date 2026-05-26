@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/transaksi.dart';
 import '../utils/format_rupiah.dart';
 
+import 'package:share_plus/share_plus.dart';
+
 class ItemTransaksi extends StatelessWidget {
   final Transaksi transaksi;
   final VoidCallback onEdit;
@@ -15,6 +17,26 @@ class ItemTransaksi extends StatelessWidget {
     required this.onDelete,
     this.tampilkanNama = false,
   });
+
+  void _shareReceipt(BuildContext context, bool isSetor) {
+    final jenisStr = isSetor ? 'Setoran' : 'Penarikan';
+    final nama = tampilkanNama && transaksi.namaPenabung != null
+        ? transaksi.namaPenabung!
+        : 'Penabung';
+    
+    final text = '''
+🧾 *Resi Tabungan Titipan*
+========================
+Nama     : $nama
+Jenis    : $jenisStr
+Nominal  : ${formatRupiah(transaksi.nominal)}
+Tanggal  : ${formatTanggal(transaksi.tanggal)}
+Catatan  : ${transaksi.catatan.isEmpty ? '-' : transaksi.catatan}
+========================
+_Terima kasih telah menggunakan layanan kami._
+''';
+    Share.share(text);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,10 +209,21 @@ class ItemTransaksi extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 onSelected: (v) {
+                  if (v == 'share') _shareReceipt(context, isSetor);
                   if (v == 'edit') onEdit();
                   if (v == 'hapus') onDelete();
                 },
                 itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'share',
+                    child: Row(children: [
+                      Icon(Icons.share_outlined,
+                          color: Color(0xFF4F8EF7), size: 16),
+                      SizedBox(width: 10),
+                      Text('Bagikan',
+                          style: TextStyle(color: Colors.white, fontSize: 14)),
+                    ]),
+                  ),
                   const PopupMenuItem(
                     value: 'edit',
                     child: Row(children: [
