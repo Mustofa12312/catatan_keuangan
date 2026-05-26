@@ -33,16 +33,8 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => PinLockScreen(
+          builder: (_) => const PinLockScreen(
             mode: PinLockMode.validate,
-            onSuccess: (unlocked) {
-              if (unlocked) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MainNavigation()),
-                );
-              }
-            },
           ),
         ),
       );

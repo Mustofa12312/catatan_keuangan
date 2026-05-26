@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_auth/local_auth.dart';
+import '../main.dart';
 
 enum PinLockMode { validate, setup, disable }
 
@@ -23,11 +25,51 @@ class _PinLockScreenState extends State<PinLockScreen> {
   String _firstPin = ''; // Untuk konfirmasi saat setup
   String _message = '';
   bool _isConfirming = false;
+  
+  final LocalAuthentication _auth = LocalAuthentication();
+  bool _biometricEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _initMessage();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    if (widget.mode == PinLockMode.validate) {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      });
+      if (_biometricEnabled) {
+        // Beri sedikit jeda agar transisi halaman selesai
+        await Future.delayed(const Duration(milliseconds: 300));
+        await _authenticateWithBiometrics();
+      }
+    }
+  }
+
+  Future<void> _authenticateWithBiometrics() async {
+    try {
+      final isAvailable = await _auth.canCheckBiometrics;
+      final isDeviceSupported = await _auth.isDeviceSupported();
+      if (isAvailable && isDeviceSupported) {
+        final authenticated = await _auth.authenticate(
+          localizedReason: 'Pindai sidik jari atau wajah untuk masuk',
+        );
+        if (authenticated) {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const MainNavigation()),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Diam, gunakan PIN jika gagal
+    }
   }
 
   void _initMessage() {
@@ -69,7 +111,12 @@ class _PinLockScreenState extends State<PinLockScreen> {
         if (widget.onSuccess != null) {
           widget.onSuccess!(true);
         } else {
-          Navigator.pop(context, true);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const MainNavigation()),
+            );
+          }
         }
       } else {
         setState(() {
@@ -223,7 +270,9 @@ class _PinLockScreenState extends State<PinLockScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const SizedBox(width: 70, height: 70), // Spacer kosong di kiri bawah
+                      _biometricEnabled
+                          ? _buildBiometricButton()
+                          : const SizedBox(width: 70, height: 70),
                       _buildNumButton('0'),
                       _buildDeleteButton(),
                     ],
@@ -269,6 +318,23 @@ class _PinLockScreenState extends State<PinLockScreen> {
         ),
         alignment: Alignment.center,
         child: const Icon(Icons.backspace_outlined, color: Color(0xFF8899BB), size: 24),
+      ),
+    );
+  }
+
+  Widget _buildBiometricButton() {
+    return GestureDetector(
+      onTap: _authenticateWithBiometrics,
+      child: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E3A5F).withValues(alpha: 0.2),
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFF4F8EF7).withValues(alpha: 0.15)),
+        ),
+        alignment: Alignment.center,
+        child: const Icon(Icons.fingerprint_rounded, color: Color(0xFF4F8EF7), size: 30),
       ),
     );
   }

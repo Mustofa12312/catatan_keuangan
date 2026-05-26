@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import '../utils/backup_helper.dart';
+import '../utils/pdf_helper.dart';
+import '../database/database_helper.dart';
+import 'pin_lock_screen.dart';
 
 class PengaturanScreen extends StatefulWidget {
   const PengaturanScreen({super.key});
@@ -11,6 +16,38 @@ class PengaturanScreen extends StatefulWidget {
 
 class _PengaturanScreenState extends State<PengaturanScreen> {
   bool _loading = false;
+  bool _appLockEnabled = false;
+  bool _biometricEnabled = false;
+  bool _autoBackupEnabled = false;
+  String _autoBackupSchedule = 'Harian'; // Harian | Mingguan
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+      _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+      _autoBackupEnabled = prefs.getBool('auto_backup_enabled') ?? false;
+      _autoBackupSchedule = prefs.getString('auto_backup_schedule') ?? 'Harian';
+    });
+  }
+
+  Future<void> _toggleBiometric(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('biometric_enabled', enabled);
+    setState(() {
+      _biometricEnabled = enabled;
+    });
+    _tampilkanPesan(
+      enabled ? 'Biometrik diaktifkan!' : 'Biometrik dinonaktifkan',
+      enabled,
+    );
+  }
 
   void _tampilkanPesan(String pesan, bool sukses) {
     if (!mounted) return;
@@ -73,6 +110,74 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
     setState(() => _loading = false);
   }
 
+  Future<void> _exportGlobalPDF() async {
+    setState(() => _loading = true);
+    try {
+      final db = DatabaseHelper.instance;
+      final rekapList = await db.getPenabungDenganSaldoSorted(sortBy: 'nama');
+      
+      int grandTotalSaldo = 0;
+      int grandTotalSetor = 0;
+      int grandTotalAmbil = 0;
+
+      for (var r in rekapList) {
+        grandTotalSaldo += (r['saldo'] as num).toInt();
+        grandTotalSetor += (r['total_setor'] as num).toInt();
+        grandTotalAmbil += (r['total_ambil'] as num).toInt();
+      }
+
+      final file = await PdfHelper.generateGlobalStatement(
+        rekapList: rekapList,
+        grandTotalSaldo: grandTotalSaldo,
+        grandTotalSetor: grandTotalSetor,
+        grandTotalAmbil: grandTotalAmbil,
+      );
+
+      if (mounted) {
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Laporan Rekapitulasi Global Tabungan Titipan',
+        );
+      }
+    } catch (e) {
+      _tampilkanPesan('Gagal mengekspor Laporan Global: $e', false);
+    }
+    setState(() => _loading = false);
+  }
+
+  Future<void> _toggleAppLock() async {
+    final targetMode = _appLockEnabled ? PinLockMode.disable : PinLockMode.setup;
+    final success = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => PinLockScreen(mode: targetMode)),
+    );
+
+    if (success == true) {
+      _loadPreferences();
+    }
+  }
+
+  Future<void> _toggleAutoBackup(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('auto_backup_enabled', enabled);
+    setState(() {
+      _autoBackupEnabled = enabled;
+    });
+    _tampilkanPesan(
+      enabled ? 'Pencadangan Cloud Otomatis Diaktifkan!' : 'Pencadangan Cloud Otomatis Dinonaktifkan',
+      enabled,
+    );
+  }
+
+  Future<void> _changeAutoBackupSchedule(String? val) async {
+    if (val == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auto_backup_schedule', val);
+    setState(() {
+      _autoBackupSchedule = val;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,16 +198,127 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Text('Data & Keamanan',
+                // ── KEAMANAN APLIKASI ──────────────────────────────────────────
+                const Text('Keamanan',
                     style: TextStyle(
                         color: Color(0xFF4F8EF7),
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A2840),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF2A3A50)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4F8EF7).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.lock_outline_rounded, color: Color(0xFF4F8EF7), size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Kunci PIN Keamanan',
+                                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(_appLockEnabled ? 'Aktif • PIN 4-Digit dikonfigurasi' : 'Nonaktif • Minta sandi PIN di awal',
+                                style: const TextStyle(color: Color(0xFF8899BB), fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _appLockEnabled,
+                        onChanged: (_) => _toggleAppLock(),
+                        activeThumbColor: const Color(0xFF4F8EF7),
+                        activeTrackColor: const Color(0xFF1A3860),
+                        inactiveThumbColor: const Color(0xFF8899BB),
+                        inactiveTrackColor: const Color(0xFF1A2840),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_appLockEnabled) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2840),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF2A3A50)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E676).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Sidik Jari / Wajah',
+                                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                              SizedBox(height: 2),
+                              Text('Masuk aplikasi menggunakan sidik jari atau wajah',
+                                  style: TextStyle(color: Color(0xFF8899BB), fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _biometricEnabled,
+                          onChanged: _toggleBiometric,
+                          activeThumbColor: const Color(0xFF00E676),
+                          activeTrackColor: const Color(0xFF00381C),
+                          inactiveThumbColor: const Color(0xFF8899BB),
+                          inactiveTrackColor: const Color(0xFF1A2840),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+
+                // ── LAPORAN KEUANGAN ──────────────────────────────────────────
+                const Text('Laporan & Ekspor',
+                    style: TextStyle(
+                        color: Color(0xFF4F8EF7),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                _MenuTile(
+                  icon: Icons.summarize_outlined,
+                  color: const Color(0xFF64B5F6),
+                  title: 'Rekap Laporan Global PDF',
+                  subtitle: 'Unduh rekapitulasi data saldo dari semua penabung.',
+                  onTap: _exportGlobalPDF,
+                ),
+                const SizedBox(height: 24),
+
+                // ── PENCADANGAN (BACKUP) ───────────────────────────────────────
+                const Text('Pencadangan Data',
+                    style: TextStyle(
+                        color: Color(0xFF4F8EF7),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
                 _MenuTile(
                   icon: Icons.cloud_upload_outlined,
                   color: const Color(0xFF66BB6A),
-                  title: 'Backup Data (Ekspor)',
+                  title: 'Backup Manual (Ekspor JSON)',
                   subtitle: 'Simpan semua data penabung ke file JSON ringan.',
                   onTap: _backup,
                 ),
@@ -110,10 +326,93 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
                 _MenuTile(
                   icon: Icons.cloud_download_outlined,
                   color: const Color(0xFFFFA726),
-                  title: 'Pulihkan Data (Impor)',
-                  subtitle: 'Kembalikan data dari file backup yang tersimpan.',
+                  title: 'Pulihkan Manual (Impor JSON)',
+                  subtitle: 'Kembalikan data dari file backup JSON sebelumnya.',
                   onTap: _restore,
                 ),
+                const SizedBox(height: 12),
+
+                // ── AUTO BACKUP SCHEDULER ─────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A2840),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF2A3A50)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF9575CD).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.sync_outlined, color: Color(0xFF9575CD), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Pencadangan Cloud Otomatis',
+                                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(_autoBackupEnabled ? 'Aktif • Cadangkan otomatis ke cloud' : 'Nonaktif • Menjaga data aman secara lokal',
+                                    style: const TextStyle(color: Color(0xFF8899BB), fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _autoBackupEnabled,
+                            onChanged: _toggleAutoBackup,
+                            activeThumbColor: const Color(0xFF9575CD),
+                            activeTrackColor: const Color(0xFF2E1A4A),
+                            inactiveThumbColor: const Color(0xFF8899BB),
+                            inactiveTrackColor: const Color(0xFF1A2840),
+                          ),
+                        ],
+                      ),
+                      if (_autoBackupEnabled) ...[
+                        const SizedBox(height: 16),
+                        const Divider(color: Color(0xFF2A3A50), height: 1),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Frekuensi Cadangan',
+                                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0A1628),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: _autoBackupSchedule,
+                                  dropdownColor: const Color(0xFF1A2840),
+                                  style: const TextStyle(color: Color(0xFF9575CD), fontSize: 13, fontWeight: FontWeight.w600),
+                                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF9575CD)),
+                                  items: ['Harian', 'Mingguan'].map((String s) {
+                                    return DropdownMenuItem<String>(
+                                      value: s,
+                                      child: Text(s),
+                                    );
+                                  }).toList(),
+                                  onChanged: _changeAutoBackupSchedule,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 40),
                 const Center(
                   child: Text('Tabungan Titipan v2.0',
@@ -169,12 +468,12 @@ class _MenuTile extends StatelessWidget {
                   Text(title,
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text(subtitle,
                       style: const TextStyle(
-                          color: Color(0xFF8899BB), fontSize: 12)),
+                          color: Color(0xFF8899BB), fontSize: 11)),
                 ],
               ),
             ),

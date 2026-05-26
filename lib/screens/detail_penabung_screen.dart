@@ -35,6 +35,40 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
   int _totalSetor = 0;
   int _totalAmbil = 0;
   bool _loading = true;
+  DateTimeRange? _filterRange;
+
+  List<Transaksi> get _filteredTransaksi {
+    if (_filterRange == null) return _transaksi;
+    return _transaksi.where((t) {
+      final tgl = DateTime.parse(t.tanggal);
+      final start = DateTime(_filterRange!.start.year, _filterRange!.start.month, _filterRange!.start.day);
+      final end = DateTime(_filterRange!.end.year, _filterRange!.end.month, _filterRange!.end.day, 23, 59, 59);
+      return tgl.isAfter(start.subtract(const Duration(seconds: 1))) && tgl.isBefore(end.add(const Duration(seconds: 1)));
+    }).toList();
+  }
+
+  Future<void> _pilihFilterTanggal() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDateRange: _filterRange,
+      builder: (ctx, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF4F8EF7),
+            surface: Color(0xFF1A2840),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _filterRange = picked;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -156,12 +190,17 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
     
     setState(() => _loading = true);
     try {
+      final listToExport = _filteredTransaksi;
+      final setor = listToExport.where((t) => t.jenis == 'setor').fold(0, (s, t) => s + t.nominal);
+      final ambil = listToExport.where((t) => t.jenis == 'ambil').fold(0, (s, t) => s + t.nominal);
+      final saldo = setor - ambil;
+
       final file = await PdfHelper.generateStatement(
         penabung: _penabung!,
-        transaksiList: _transaksi,
-        saldoAkhir: _saldo,
-        totalSetor: _totalSetor,
-        totalAmbil: _totalAmbil,
+        transaksiList: listToExport,
+        saldoAkhir: saldo,
+        totalSetor: setor,
+        totalAmbil: ambil,
       );
 
       if (mounted) {
@@ -319,22 +358,70 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Riwayat (${_transaksi.length})',
+                          'Riwayat (${_filteredTransaksi.length})',
                           style: GoogleFonts.poppins(
                               color: Colors.white,
                               fontSize: 15,
                               fontWeight: FontWeight.w600),
                         ),
-                        const Text('← Geser untuk hapus',
-                            style: TextStyle(
-                                color: Color(0xFF6677AA), fontSize: 11)),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _filterRange == null ? Icons.calendar_month_outlined : Icons.filter_alt_off_outlined,
+                                color: _filterRange == null ? const Color(0xFF4F8EF7) : const Color(0xFFEF5350),
+                                size: 22,
+                              ),
+                              onPressed: () {
+                                if (_filterRange != null) {
+                                  setState(() => _filterRange = null);
+                                } else {
+                                  _pilihFilterTanggal();
+                                }
+                              },
+                              tooltip: 'Filter Tanggal',
+                            ),
+                            const Text('← Geser untuk hapus',
+                                style: TextStyle(
+                                    color: Color(0xFF6677AA), fontSize: 11)),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 ),
 
+                // ── Active Filter Chip ───────────────────────────────
+                if (_filterRange != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4F8EF7).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF4F8EF7).withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Rentang: ${_filterRange!.start.day}/${_filterRange!.start.month}/${_filterRange!.start.year} - ${_filterRange!.end.day}/${_filterRange!.end.month}/${_filterRange!.end.year}',
+                              style: const TextStyle(color: Color(0xFF4F8EF7), fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                            GestureDetector(
+                              onTap: () => setState(() => _filterRange = null),
+                              child: const Icon(Icons.close_rounded, color: Color(0xFF4F8EF7), size: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                 // ── List Transaksi ───────────────────────────────────
-                if (_transaksi.isEmpty)
+                if (_filteredTransaksi.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 40),
@@ -343,7 +430,10 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                           const Icon(Icons.receipt_long_outlined,
                               color: Color(0xFF2A3A50), size: 50),
                           const SizedBox(height: 12),
-                          Text('Belum ada transaksi',
+                          Text(
+                              _filterRange == null
+                                  ? 'Belum ada transaksi'
+                                  : 'Tidak ada transaksi pada tanggal ini',
                               style: GoogleFonts.poppins(
                                   color: const Color(0xFF8899BB),
                                   fontSize: 13)),
@@ -355,7 +445,7 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (ctx, i) {
-                        final t = _transaksi[i];
+                        final t = _filteredTransaksi[i];
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: ItemTransaksi(
@@ -365,7 +455,7 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                           ),
                         );
                       },
-                      childCount: _transaksi.length,
+                      childCount: _filteredTransaksi.length,
                     ),
                   ),
                 const SliverToBoxAdapter(child: SizedBox(height: 30)),
