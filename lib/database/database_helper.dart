@@ -211,4 +211,53 @@ class DatabaseHelper {
     ''', [limit]);
     return maps.map(Transaksi.fromMap).toList();
   }
+
+  /// Data grafik 6 bulan terakhir per penabung
+  /// Returns list of {bulan, setor, ambil}
+  Future<List<Map<String, dynamic>>> getChartData(int penabungId) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT
+        strftime('%Y-%m', tanggal) AS bulan,
+        COALESCE(SUM(CASE WHEN jenis='setor' THEN nominal ELSE 0 END), 0) AS setor,
+        COALESCE(SUM(CASE WHEN jenis='ambil' THEN nominal ELSE 0 END), 0) AS ambil
+      FROM transaksi
+      WHERE penabung_id = ?
+        AND tanggal >= date('now', '-6 months')
+      GROUP BY bulan
+      ORDER BY bulan ASC
+    ''', [penabungId]);
+    return res;
+  }
+
+  /// Penabung diurutkan berdasarkan saldo tertinggi
+  Future<List<Map<String, dynamic>>> getPenabungDenganSaldoSorted({
+    String sortBy = 'saldo', // 'saldo' | 'nama' | 'terbaru'
+  }) async {
+    final db = await database;
+    final orderClause = switch (sortBy) {
+      'nama' => 'p.nama ASC',
+      'terbaru' => 'p.dibuat_pada DESC',
+      _ => 'saldo DESC',
+    };
+    final res = await db.rawQuery('''
+      SELECT
+        p.id,
+        p.nama,
+        p.catatan,
+        p.dibuat_pada,
+        COALESCE(SUM(CASE WHEN t.jenis='setor' THEN t.nominal ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN t.jenis='ambil' THEN t.nominal ELSE 0 END), 0)
+        AS saldo,
+        COALESCE(SUM(CASE WHEN t.jenis='setor' THEN t.nominal ELSE 0 END), 0) AS total_setor,
+        COALESCE(SUM(CASE WHEN t.jenis='ambil' THEN t.nominal ELSE 0 END), 0) AS total_ambil,
+        COUNT(t.id) AS jumlah_transaksi
+      FROM penabung p
+      LEFT JOIN transaksi t ON t.penabung_id = p.id
+      GROUP BY p.id
+      ORDER BY $orderClause
+    ''');
+    return res;
+  }
 }
+

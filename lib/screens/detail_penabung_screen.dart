@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../database/database_helper.dart';
 import '../models/penabung.dart';
 import '../models/transaksi.dart';
@@ -26,6 +27,7 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
   final _db = DatabaseHelper.instance;
   Penabung? _penabung;
   List<Transaksi> _transaksi = [];
+  List<Map<String, dynamic>> _chartData = [];
   int _saldo = 0;
   int _totalSetor = 0;
   int _totalAmbil = 0;
@@ -41,12 +43,11 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
     final p = await _db.getPenabungById(widget.penabungId);
     final list = await _db.getTransaksiByPenabung(widget.penabungId);
     final saldo = await _db.getSaldoPenabung(widget.penabungId);
-    final setor = list
-        .where((t) => t.jenis == 'setor')
-        .fold(0, (s, t) => s + t.nominal);
-    final ambil = list
-        .where((t) => t.jenis == 'ambil')
-        .fold(0, (s, t) => s + t.nominal);
+    final chart = await _db.getChartData(widget.penabungId);
+    final setor =
+        list.where((t) => t.jenis == 'setor').fold(0, (s, t) => s + t.nominal);
+    final ambil =
+        list.where((t) => t.jenis == 'ambil').fold(0, (s, t) => s + t.nominal);
 
     if (mounted) {
       setState(() {
@@ -55,6 +56,7 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
         _saldo = saldo;
         _totalSetor = setor;
         _totalAmbil = ambil;
+        _chartData = chart;
         _loading = false;
       });
     }
@@ -63,13 +65,12 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
   Future<void> _tambahTransaksi(String jenis) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => TambahTransaksiScreen(
-          penabungId: widget.penabungId,
-          namaPenabung: _penabung?.nama ?? widget.namaPenabung,
-          jenisAwal: jenis,
-        ),
-      ),
+      _slideRoute(TambahTransaksiScreen(
+        penabungId: widget.penabungId,
+        namaPenabung: _penabung?.nama ?? widget.namaPenabung,
+        jenisAwal: jenis,
+        saldoSaatIni: _saldo,
+      )),
     );
     if (result == true) _loadData();
   }
@@ -77,65 +78,51 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
   Future<void> _editTransaksi(Transaksi t) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => TambahTransaksiScreen(
-          penabungId: widget.penabungId,
-          namaPenabung: _penabung?.nama ?? widget.namaPenabung,
-          transaksi: t,
-        ),
-      ),
+      _slideRoute(TambahTransaksiScreen(
+        penabungId: widget.penabungId,
+        namaPenabung: _penabung?.nama ?? widget.namaPenabung,
+        transaksi: t,
+        saldoSaatIni: _saldo,
+      )),
     );
     if (result == true) _loadData();
   }
 
   Future<void> _hapusTransaksi(int id) async {
-    final ok = await _konfirmasi('Hapus transaksi ini?');
-    if (ok) {
-      await _db.deleteTransaksi(id);
-      _loadData();
-    }
+    await _db.deleteTransaksi(id);
+    _loadData();
   }
 
   Future<void> _editPenabung() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (_) => TambahPenabungScreen(penabung: _penabung)),
+      _slideRoute(TambahPenabungScreen(penabung: _penabung)),
     );
     if (result == true) _loadData();
   }
 
   Future<void> _hapusPenabung() async {
-    final ok = await _konfirmasi(
-        'Hapus penabung ini beserta seluruh riwayat transaksinya?');
-    if (ok) {
-      await _db.deletePenabung(widget.penabungId);
-      if (mounted) Navigator.pop(context, true);
-    }
-  }
-
-  Future<bool> _konfirmasi(String pesan) async {
-    final result = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2A3A),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Konfirmasi',
-            style: TextStyle(color: Colors.white)),
-        content:
-            Text(pesan, style: const TextStyle(color: Colors.white70)),
+        backgroundColor: const Color(0xFF1A2840),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Hapus Penabung',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        content: const Text(
+            'Penabung beserta seluruh riwayat transaksinya akan dihapus permanen.',
+            style: TextStyle(color: Color(0xFF8899BB))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Batal',
-                style: TextStyle(color: Color(0xFF8899AA))),
+                style: TextStyle(color: Color(0xFF8899BB))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+              backgroundColor: const Color(0xFFEF5350),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Ya, Hapus'),
@@ -143,34 +130,50 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
         ],
       ),
     );
-    return result ?? false;
+    if (ok == true) {
+      await _db.deletePenabung(widget.penabungId);
+      if (mounted) Navigator.pop(context, true);
+    }
   }
 
-  Color get _saldoColor =>
-      _saldo > 0 ? const Color(0xFF4CAF50) : (_saldo == 0 ? const Color(0xFF8899AA) : const Color(0xFFE57373));
+  PageRoute _slideRoute(Widget page) => PageRouteBuilder(
+        pageBuilder: (context3, anim, widget2) => page,
+        transitionsBuilder: (ctx2, anim2, secAnim, child) => SlideTransition(
+          position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+          ),
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 300),
+      );
+
+  Color get _saldoColor => _saldo > 0
+      ? const Color(0xFF66BB6A)
+      : (_saldo == 0 ? const Color(0xFF8899BB) : const Color(0xFFEF5350));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
+      backgroundColor: const Color(0xFF0A1628),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1565C0)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF4F8EF7)))
           : CustomScrollView(
               slivers: [
-                // App bar
+                // ── App Bar ─────────────────────────────────────────
                 SliverAppBar(
-                  expandedHeight: 220,
+                  expandedHeight: 280,
                   pinned: true,
-                  backgroundColor: const Color(0xFF0D1B2A),
+                  backgroundColor: const Color(0xFF0A1628),
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back_ios_rounded,
-                        color: Colors.white),
+                        color: Colors.white, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                   actions: [
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert, color: Colors.white),
-                      color: const Color(0xFF1E2A3A),
+                      color: const Color(0xFF1A2840),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                       onSelected: (v) {
@@ -182,48 +185,41 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                           value: 'edit',
                           child: Row(children: [
                             Icon(Icons.edit_outlined,
-                                color: Colors.blueAccent, size: 18),
+                                color: Colors.blueAccent, size: 16),
                             SizedBox(width: 10),
                             Text('Edit Penabung',
-                                style: TextStyle(color: Colors.white)),
+                                style: TextStyle(color: Colors.white, fontSize: 14)),
                           ]),
                         ),
                         const PopupMenuItem(
                           value: 'hapus',
                           child: Row(children: [
                             Icon(Icons.delete_outline,
-                                color: Colors.redAccent, size: 18),
+                                color: Colors.redAccent, size: 16),
                             SizedBox(width: 10),
                             Text('Hapus Penabung',
-                                style: TextStyle(color: Colors.white)),
+                                style: TextStyle(color: Colors.white, fontSize: 14)),
                           ]),
                         ),
                       ],
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
-                    background: _HeaderPenabung(
-                      nama: _penabung?.nama ?? widget.namaPenabung,
-                      catatan: _penabung?.catatan ?? '',
-                      saldo: _saldo,
-                      totalSetor: _totalSetor,
-                      totalAmbil: _totalAmbil,
-                      saldoColor: _saldoColor,
-                    ),
+                    background: _buildHeader(),
                   ),
                 ),
 
-                // Tombol setor & ambil
+                // ── Tombol Aksi ─────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
                     child: Row(
                       children: [
                         Expanded(
                           child: _TombolAksi(
                             label: 'Setor',
                             icon: Icons.south_rounded,
-                            color: const Color(0xFF4CAF50),
+                            color: const Color(0xFF66BB6A),
                             onTap: () => _tambahTransaksi('setor'),
                           ),
                         ),
@@ -232,7 +228,7 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                           child: _TombolAksi(
                             label: 'Ambil',
                             icon: Icons.north_rounded,
-                            color: const Color(0xFFE57373),
+                            color: const Color(0xFFEF9A9A),
                             onTap: () => _tambahTransaksi('ambil'),
                           ),
                         ),
@@ -241,22 +237,38 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                   ),
                 ),
 
-                // Header riwayat
+                // ── Chart ────────────────────────────────────────────
+                if (_chartData.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: _MiniChart(chartData: _chartData),
+                    ),
+                  ),
+
+                // ── Header riwayat ───────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
-                    child: Text(
-                      'Riwayat Transaksi (${_transaksi.length})',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Riwayat (${_transaksi.length})',
+                          style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        const Text('← Geser untuk hapus',
+                            style: TextStyle(
+                                color: Color(0xFF6677AA), fontSize: 11)),
+                      ],
                     ),
                   ),
                 ),
 
-                // List transaksi
+                // ── List Transaksi ───────────────────────────────────
                 if (_transaksi.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -264,11 +276,12 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                       child: Column(
                         children: [
                           const Icon(Icons.receipt_long_outlined,
-                              color: Colors.white24, size: 50),
+                              color: Color(0xFF2A3A50), size: 50),
                           const SizedBox(height: 12),
                           Text('Belum ada transaksi',
                               style: GoogleFonts.poppins(
-                                  color: Colors.white38, fontSize: 13)),
+                                  color: const Color(0xFF8899BB),
+                                  fontSize: 13)),
                         ],
                       ),
                     ),
@@ -295,59 +308,46 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
             ),
     );
   }
-}
 
-class _HeaderPenabung extends StatelessWidget {
-  final String nama;
-  final String catatan;
-  final int saldo;
-  final int totalSetor;
-  final int totalAmbil;
-  final Color saldoColor;
-
-  const _HeaderPenabung({
-    required this.nama,
-    required this.catatan,
-    required this.saldo,
-    required this.totalSetor,
-    required this.totalAmbil,
-    required this.saldoColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildHeader() {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF0D1B2A)),
+      color: const Color(0xFF0A1628),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 60, 20, 16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              // Avatar + nama
               Row(
                 children: [
                   Container(
-                    width: 60,
-                    height: 60,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          saldoColor.withValues(alpha: 0.3),
-                          saldoColor.withValues(alpha: 0.1),
+                          _saldoColor.withValues(alpha: 0.3),
+                          _saldoColor.withValues(alpha: 0.1),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                          color: _saldoColor.withValues(alpha: 0.3), width: 1),
                     ),
                     child: Center(
                       child: Text(
-                        nama.isNotEmpty ? nama[0].toUpperCase() : '?',
+                        (_penabung?.nama ?? widget.namaPenabung)
+                            .isNotEmpty
+                            ? (_penabung?.nama ?? widget.namaPenabung)[0]
+                                .toUpperCase()
+                            : '?',
                         style: TextStyle(
-                          color: saldoColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 24,
-                        ),
+                            color: _saldoColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 26),
                       ),
                     ),
                   ),
@@ -356,44 +356,45 @@ class _HeaderPenabung extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(nama,
+                        Text(
+                          _penabung?.nama ?? widget.namaPenabung,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700),
+                        ),
+                        if ((_penabung?.catatan ?? '').isNotEmpty)
+                          Text(
+                            _penabung!.catatan,
                             style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700)),
-                        if (catatan.isNotEmpty)
-                          Text(catatan,
-                              style: const TextStyle(
-                                  color: Color(0xFF8899AA), fontSize: 12)),
+                                color: Color(0xFF8899BB), fontSize: 12),
+                          ),
                       ],
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
+
+              // Kartu saldo
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E2A3A),
+                  color: const Color(0xFF1A2840),
                   borderRadius: BorderRadius.circular(16),
-                  border:
-                      Border.all(color: saldoColor.withValues(alpha: 0.3), width: 1),
+                  border: Border.all(
+                      color: _saldoColor.withValues(alpha: 0.25), width: 1),
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('Saldo Tabungan',
-                            style: const TextStyle(
-                                color: Color(0xFF8899AA), fontSize: 12)),
-                      ],
-                    ),
+                    Text('Saldo Tabungan',
+                        style: const TextStyle(
+                            color: Color(0xFF8899BB), fontSize: 12)),
                     const SizedBox(height: 6),
                     Text(
-                      formatRupiah(saldo),
+                      formatRupiah(_saldo),
                       style: TextStyle(
-                          color: saldoColor,
+                          color: _saldoColor,
                           fontSize: 26,
                           fontWeight: FontWeight.w800),
                     ),
@@ -403,16 +404,18 @@ class _HeaderPenabung extends StatelessWidget {
                         Expanded(
                           child: _StatItem(
                               label: 'Total Setor',
-                              value: formatRupiah(totalSetor),
-                              color: const Color(0xFF4CAF50)),
+                              value: formatRupiah(_totalSetor),
+                              color: const Color(0xFF66BB6A)),
                         ),
                         Container(
-                            width: 1, height: 30, color: const Color(0xFF2A3A4A)),
+                            width: 1,
+                            height: 30,
+                            color: const Color(0xFF2A3A50)),
                         Expanded(
                           child: _StatItem(
                               label: 'Total Ambil',
-                              value: formatRupiah(totalAmbil),
-                              color: const Color(0xFFE57373)),
+                              value: formatRupiah(_totalAmbil),
+                              color: const Color(0xFFEF9A9A)),
                         ),
                       ],
                     ),
@@ -427,23 +430,168 @@ class _HeaderPenabung extends StatelessWidget {
   }
 }
 
+// ── Mini Bar Chart ─────────────────────────────────────────────────────────
+
+class _MiniChart extends StatelessWidget {
+  final List<Map<String, dynamic>> chartData;
+
+  const _MiniChart({required this.chartData});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxVal = chartData.fold(0.0, (m, d) {
+      final s = (d['setor'] as num).toDouble();
+      final a = (d['ambil'] as num).toDouble();
+      return m < s ? (m < a ? a : m) : (m < a ? a : m);
+    });
+    if (maxVal == 0) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2840),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2A3A50), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Tren 6 Bulan',
+                  style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+              Row(
+                children: [
+                  _LegendDot(color: const Color(0xFF66BB6A), label: 'Setor'),
+                  const SizedBox(width: 10),
+                  _LegendDot(
+                      color: const Color(0xFFEF9A9A), label: 'Ambil'),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 120,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxVal * 1.2,
+                minY: 0,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (_) => const FlLine(
+                      color: Color(0xFF2A3A50), strokeWidth: 0.5),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      getTitlesWidget: (x, _) {
+                        final i = x.toInt();
+                        if (i >= chartData.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final bulan =
+                            (chartData[i]['bulan'] as String).substring(5);
+                        return Text(
+                          bulan,
+                          style: const TextStyle(
+                              color: Color(0xFF8899BB), fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: chartData.asMap().entries.map((e) {
+                  final i = e.key;
+                  final d = e.value;
+                  final setor = (d['setor'] as num).toDouble();
+                  final ambil = (d['ambil'] as num).toDouble();
+                  return BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(
+                        toY: setor,
+                        color: const Color(0xFF66BB6A),
+                        width: 8,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      BarChartRodData(
+                        toY: ambil,
+                        color: const Color(0xFFEF9A9A),
+                        width: 8,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ],
+                    barsSpace: 3,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(color: Color(0xFF8899BB), fontSize: 10)),
+      ],
+    );
+  }
+}
+
+// ── Helper Widgets ──────────────────────────────────────────────────────────
+
 class _StatItem extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-
-  const _StatItem({required this.label, required this.value, required this.color});
+  const _StatItem(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Text(label,
-            style: const TextStyle(color: Color(0xFF8899AA), fontSize: 11)),
+            style:
+                const TextStyle(color: Color(0xFF8899BB), fontSize: 11)),
         const SizedBox(height: 4),
         Text(value,
             style: TextStyle(
-                color: color, fontSize: 13, fontWeight: FontWeight.w700)),
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w700)),
       ],
     );
   }
@@ -456,14 +604,17 @@ class _TombolAksi extends StatelessWidget {
   final VoidCallback onTap;
 
   const _TombolAksi(
-      {required this.label, required this.icon, required this.color, required this.onTap});
+      {required this.label,
+      required this.icon,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
@@ -476,7 +627,9 @@ class _TombolAksi extends StatelessWidget {
             const SizedBox(width: 8),
             Text(label,
                 style: TextStyle(
-                    color: color, fontWeight: FontWeight.w600, fontSize: 14)),
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14)),
           ],
         ),
       ),

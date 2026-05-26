@@ -2,107 +2,105 @@ import 'package:flutter/material.dart';
 import '../utils/format_rupiah.dart';
 
 class KartuPenabung extends StatelessWidget {
-  final String nama;
-  final String catatan;
-  final int saldo;
-  final int totalSetor;
-  final int totalAmbil;
+  final Map<String, dynamic> item;
   final VoidCallback onTap;
   final VoidCallback onSetor;
   final VoidCallback onAmbil;
 
   const KartuPenabung({
     super.key,
-    required this.nama,
-    required this.catatan,
-    required this.saldo,
-    required this.totalSetor,
-    required this.totalAmbil,
+    required this.item,
     required this.onTap,
     required this.onSetor,
     required this.onAmbil,
   });
 
-  Color get _saldoColor =>
-      saldo > 0 ? const Color(0xFF4CAF50) : (saldo == 0 ? const Color(0xFF8899AA) : const Color(0xFFE53935));
-
   @override
   Widget build(BuildContext context) {
+    final nama = item['nama'] as String;
+    final catatan = (item['catatan'] as String?) ?? '';
+    final saldo = (item['saldo'] as num).toInt();
+    final totalSetor = (item['total_setor'] as num).toInt();
+    final totalAmbil = (item['total_ambil'] as num).toInt();
+    final jumlahTrx = (item['jumlah_transaksi'] as num? ?? 0).toInt();
+
+    final saldoColor = saldo > 0
+        ? const Color(0xFF66BB6A)
+        : (saldo == 0 ? const Color(0xFF8899BB) : const Color(0xFFEF5350));
+    final persentase =
+        totalSetor > 0 ? (saldo / totalSetor).clamp(0.0, 1.0) : 0.0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E2A3A),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _saldoColor.withValues(alpha: 0.2), width: 1),
+          color: const Color(0xFF1A2840),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: saldoColor.withValues(alpha: 0.15), width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           children: [
-            // Header
+            // ── Top row ────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 12, 10),
               child: Row(
                 children: [
                   // Avatar
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          _saldoColor.withValues(alpha: 0.3),
-                          _saldoColor.withValues(alpha: 0.1),
+                          saldoColor.withValues(alpha: 0.25),
+                          saldoColor.withValues(alpha: 0.08),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(15),
                     ),
                     child: Center(
                       child: Text(
                         nama.isNotEmpty ? nama[0].toUpperCase() : '?',
                         style: TextStyle(
-                          color: _saldoColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 20,
-                        ),
+                            color: saldoColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 22),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   // Info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          nama,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (catatan.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            catatan,
+                        Text(nama,
                             style: const TextStyle(
-                              color: Color(0xFF8899AA),
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15)),
+                        const SizedBox(height: 2),
+                        if (catatan.isNotEmpty)
+                          Text(catatan,
+                              style: const TextStyle(
+                                  color: Color(0xFF8899BB), fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis)
+                        else
+                          Text('$jumlahTrx transaksi',
+                              style: const TextStyle(
+                                  color: Color(0xFF6677AA), fontSize: 11)),
                       ],
                     ),
                   ),
@@ -110,62 +108,95 @@ class KartuPenabung extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        formatRupiah(saldo),
-                        style: TextStyle(
-                          color: _saldoColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const Text(
-                        'Saldo',
-                        style: TextStyle(color: Color(0xFF8899AA), fontSize: 11),
-                      ),
+                      Text(formatRupiah(saldo),
+                          style: TextStyle(
+                              color: saldoColor,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14)),
+                      const Text('saldo',
+                          style: TextStyle(
+                              color: Color(0xFF8899BB), fontSize: 10)),
                     ],
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right_rounded,
+                      color: Color(0xFF4A5A6A), size: 18),
+                ],
+              ),
+            ),
+
+            // ── Progress bar ────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Setor: ${formatRupiah(totalSetor)}',
+                          style: const TextStyle(
+                              color: Color(0xFF66BB6A), fontSize: 10)),
+                      Text('Ambil: ${formatRupiah(totalAmbil)}',
+                          style: const TextStyle(
+                              color: Color(0xFFEF9A9A), fontSize: 10)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: persentase.toDouble(),
+                      backgroundColor:
+                          const Color(0xFFEF5350).withValues(alpha: 0.2),
+                      valueColor: AlwaysStoppedAnimation(saldoColor),
+                      minHeight: 4,
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Divider
-            const Divider(color: Color(0xFF2A3A4A), height: 1),
-
-            // Footer: setor, ambil, detail
+            // ── Divider + Tombol ────────────────────────────────
+            const SizedBox(height: 10),
+            const Divider(color: Color(0xFF243550), height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   Expanded(
-                    child: _MiniStat(
-                      label: 'Total Setor',
-                      value: formatRupiah(totalSetor),
-                      color: const Color(0xFF4CAF50),
+                    child: _AksiBtn(
+                      label: 'Setor',
                       icon: Icons.south_rounded,
+                      color: const Color(0xFF66BB6A),
+                      onTap: onSetor,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: _MiniStat(
-                      label: 'Total Ambil',
-                      value: formatRupiah(totalAmbil),
-                      color: const Color(0xFFE53935),
+                    child: _AksiBtn(
+                      label: 'Ambil',
                       icon: Icons.north_rounded,
+                      color: const Color(0xFFEF9A9A),
+                      onTap: onAmbil,
                     ),
                   ),
-                  Row(
-                    children: [
-                      _AksiBtn(
-                        label: 'Setor',
-                        color: const Color(0xFF4CAF50),
-                        onTap: onSetor,
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF243550),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 6),
-                      _AksiBtn(
-                        label: 'Ambil',
-                        color: const Color(0xFFE57373),
-                        onTap: onAmbil,
-                      ),
-                    ],
+                      child: const Text('Detail',
+                          style: TextStyle(
+                              color: Color(0xFF8899BB),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500)),
+                    ),
                   ),
                 ],
               ),
@@ -177,55 +208,40 @@ class KartuPenabung extends StatelessWidget {
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _MiniStat({required this.label, required this.value, required this.color, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 13),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(color: Color(0xFF8899AA), fontSize: 10)),
-              Text(value, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _AksiBtn extends StatelessWidget {
   final String label;
+  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
-  const _AksiBtn({required this.label, required this.color, required this.onTap});
+  const _AksiBtn(
+      {required this.label,
+      required this.icon,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
-        child: Text(
-          label,
-          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+          ],
         ),
       ),
     );

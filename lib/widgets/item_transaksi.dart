@@ -6,7 +6,7 @@ class ItemTransaksi extends StatelessWidget {
   final Transaksi transaksi;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final bool tampilkanNama; // false jika di halaman detail per penabung
+  final bool tampilkanNama;
 
   const ItemTransaksi({
     super.key,
@@ -19,132 +19,225 @@ class ItemTransaksi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSetor = transaksi.jenis == 'setor';
-    final color = isSetor ? const Color(0xFF4CAF50) : const Color(0xFFE57373);
-    final bgColor = isSetor
-        ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
-        : const Color(0xFFE57373).withValues(alpha: 0.08);
+    final color =
+        isSetor ? const Color(0xFF66BB6A) : const Color(0xFFEF5350);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E2A3A),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            isSetor ? Icons.south_rounded : Icons.north_rounded,
-            color: color,
-            size: 22,
-          ),
+    return Dismissible(
+      key: Key('transaksi_${transaksi.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEF5350).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: const Color(0xFFEF5350).withValues(alpha: 0.3)),
         ),
-        title: tampilkanNama && transaksi.namaPenabung != null
-            ? Text(
-                transaksi.namaPenabung!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              )
-            : Text(
-                isSetor ? 'Setor Tabungan' : 'Ambil Tabungan',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(height: 3),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isSetor ? 'Setor' : 'Ambil',
-                    style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500),
-                  ),
+            const Icon(Icons.delete_outline_rounded,
+                color: Color(0xFFEF5350), size: 26),
+            const SizedBox(height: 4),
+            const Text('Hapus',
+                style: TextStyle(
+                    color: Color(0xFFEF5350),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+      confirmDismiss: (_) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1A2840),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: const Text('Hapus Transaksi',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
+            content: const Text(
+                'Transaksi ini akan dihapus permanen.',
+                style: TextStyle(color: Color(0xFF8899BB))),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal',
+                    style: TextStyle(color: Color(0xFF8899BB))),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF5350),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  formatTanggal(transaksi.tanggal),
-                  style: const TextStyle(color: Color(0xFF8899AA), fontSize: 11),
-                ),
-              ],
-            ),
-            if (transaksi.catatan.isNotEmpty) ...[
-              const SizedBox(height: 3),
-              Text(
-                transaksi.catatan,
-                style: const TextStyle(color: Color(0xFF6677AA), fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Hapus'),
               ),
             ],
-          ],
+          ),
+        );
+      },
+      onDismissed: (_) => onDelete(),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2840),
+          borderRadius: BorderRadius.circular(14),
+          border:
+              Border.all(color: color.withValues(alpha: 0.15), width: 1),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${isSetor ? '+' : '-'}${formatRupiah(transaksi.nominal)}',
-              style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Color(0xFF8899AA), size: 18),
-              color: const Color(0xFF1E2A3A),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              onSelected: (v) {
-                if (v == 'edit') onEdit();
-                if (v == 'hapus') onDelete();
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, color: Colors.blueAccent, size: 18),
-                      SizedBox(width: 10),
-                      Text('Edit', style: TextStyle(color: Colors.white)),
-                    ],
-                  ),
+            child: Icon(
+              isSetor ? Icons.south_rounded : Icons.north_rounded,
+              color: color,
+              size: 20,
+            ),
+          ),
+          title: tampilkanNama && transaksi.namaPenabung != null
+              ? Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        transaksi.namaPenabung!,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _JenisBadge(isSetor: isSetor, color: color),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Text(
+                      isSetor ? 'Setoran' : 'Penarikan',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14),
+                    ),
+                    const SizedBox(width: 6),
+                    _JenisBadge(isSetor: isSetor, color: color),
+                  ],
                 ),
-                const PopupMenuItem(
-                  value: 'hapus',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                      SizedBox(width: 10),
-                      Text('Hapus', style: TextStyle(color: Colors.white)),
-                    ],
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 11, color: Color(0xFF8899BB)),
+                  const SizedBox(width: 4),
+                  Text(
+                    formatTanggal(transaksi.tanggal),
+                    style: const TextStyle(
+                        color: Color(0xFF8899BB), fontSize: 11),
                   ),
+                ],
+              ),
+              if (transaksi.catatan.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  transaksi.catatan,
+                  style: const TextStyle(
+                      color: Color(0xFF6677AA), fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-          ],
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${isSetor ? '+' : '-'}${formatRupiah(transaksi.nominal)}',
+                    style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13),
+                  ),
+                ],
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert,
+                    color: Color(0xFF8899BB), size: 18),
+                color: const Color(0xFF1A2840),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                onSelected: (v) {
+                  if (v == 'edit') onEdit();
+                  if (v == 'hapus') onDelete();
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(children: [
+                      Icon(Icons.edit_outlined,
+                          color: Colors.blueAccent, size: 16),
+                      SizedBox(width: 10),
+                      Text('Edit',
+                          style: TextStyle(color: Colors.white, fontSize: 14)),
+                    ]),
+                  ),
+                  const PopupMenuItem(
+                    value: 'hapus',
+                    child: Row(children: [
+                      Icon(Icons.delete_outline,
+                          color: Colors.redAccent, size: 16),
+                      SizedBox(width: 10),
+                      Text('Hapus',
+                          style: TextStyle(color: Colors.white, fontSize: 14)),
+                    ]),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _JenisBadge extends StatelessWidget {
+  final bool isSetor;
+  final Color color;
+  const _JenisBadge({required this.isSetor, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        isSetor ? 'Setor' : 'Ambil',
+        style: TextStyle(
+            color: color, fontSize: 10, fontWeight: FontWeight.w600),
       ),
     );
   }
