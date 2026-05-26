@@ -1,14 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../database/database_helper.dart';
 import '../models/penabung.dart';
 import '../models/transaksi.dart';
 import '../utils/format_rupiah.dart';
+import '../utils/pdf_helper.dart';
 import '../widgets/item_transaksi.dart';
 import 'tambah_transaksi_screen.dart';
 import 'tambah_penabung_screen.dart';
@@ -140,63 +138,33 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
     }
   }
 
-  final _screenshotController = ScreenshotController();
-
-  Future<void> _exportToImage() async {
+  Future<void> _exportToPDF() async {
+    if (_penabung == null) return;
+    
     setState(() => _loading = true);
     try {
-      final imageBytes = await _screenshotController.captureFromWidget(
-        _buildExportWidget(),
-        delay: const Duration(milliseconds: 100),
+      final file = await PdfHelper.generateStatement(
+        penabung: _penabung!,
+        transaksiList: _transaksi,
+        saldoAkhir: _saldo,
+        totalSetor: _totalSetor,
+        totalAmbil: _totalAmbil,
       );
-
-      final tempDir = await getTemporaryDirectory();
-      final file = await File('${tempDir.path}/rekap_${widget.namaPenabung.replaceAll(' ', '_')}.png').create();
-      await file.writeAsBytes(imageBytes);
 
       if (mounted) {
         await Share.shareXFiles(
           [XFile(file.path)],
-          text: 'Rekap Tabungan Titipan: ${widget.namaPenabung}',
+          text: 'Laporan Rekening Koran Tabungan Titipan: ${_penabung!.nama}',
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengekspor: $e')),
+          SnackBar(content: Text('Gagal mengekspor PDF: $e')),
         );
       }
     }
     setState(() => _loading = false);
-  }
-
-  Widget _buildExportWidget() {
-    return Container(
-      width: 400,
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A1628),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.account_balance_wallet, color: Color(0xFF4F8EF7), size: 30),
-              const SizedBox(width: 10),
-              Text('Tabungan Titipan',
-                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildHeader(),
-          const SizedBox(height: 20),
-          Text('Diekspor pada: ${formatTanggal(DateTime.now().toIso8601String())}',
-              style: const TextStyle(color: Color(0xFF8899BB), fontSize: 12)),
-        ],
-      ),
-    );
   }
 
   PageRoute _slideRoute(Widget page) => PageRouteBuilder(
@@ -225,7 +193,6 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
               slivers: [
                 // ── App Bar ─────────────────────────────────────────
                 SliverAppBar(
-                  expandedHeight: 330,
                   pinned: true,
                   backgroundColor: const Color(0xFF0A1628),
                   leading: IconButton(
@@ -240,7 +207,7 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                       onSelected: (v) {
-                        if (v == 'ekspor') _exportToImage();
+                        if (v == 'ekspor') _exportToPDF();
                         if (v == 'edit') _editPenabung();
                         if (v == 'hapus') _hapusPenabung();
                       },
@@ -248,10 +215,10 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                         const PopupMenuItem(
                           value: 'ekspor',
                           child: Row(children: [
-                            Icon(Icons.image_outlined,
-                                color: Color(0xFF66BB6A), size: 16),
+                            Icon(Icons.picture_as_pdf_outlined,
+                                color: Color(0xFF4F8EF7), size: 16),
                             SizedBox(width: 10),
-                            Text('Ekspor Rekap',
+                            Text('Ekspor PDF Laporan',
                                 style: TextStyle(color: Colors.white, fontSize: 14)),
                           ]),
                         ),
@@ -278,9 +245,11 @@ class _DetailPenabungScreenState extends State<DetailPenabungScreen> {
                       ],
                     ),
                   ],
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _buildHeader(),
-                  ),
+                ),
+
+                // ── Header (Aman dari Overflow) ─────────────────────
+                SliverToBoxAdapter(
+                  child: _buildHeader(),
                 ),
 
                 // ── Tombol Aksi ─────────────────────────────────────
