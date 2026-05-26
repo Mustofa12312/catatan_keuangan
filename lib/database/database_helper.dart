@@ -259,5 +259,23 @@ class DatabaseHelper {
     ''');
     return res;
   }
+
+  // ─── BACKUP & RESTORE ───────────────────────────────────────
+
+  Future<void> clearSemuaData() async {
+    final db = await database;
+    await db.execute('DELETE FROM transaksi');
+    await db.execute('DELETE FROM penabung');
+  }
+
+  Future<void> insertPenabungRaw(Map<String, dynamic> data) async {
+    final db = await database;
+    await db.insert('penabung', data);
+  }
+
+  Future<void> insertTransaksiRaw(Map<String, dynamic> data) async {
+    final db = await database;
+    await db.insert('transaksi', data);
+  }
 }
 
