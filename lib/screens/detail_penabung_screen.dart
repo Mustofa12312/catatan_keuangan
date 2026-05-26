@@ -507,7 +507,8 @@ class _MiniChart extends StatelessWidget {
     final maxVal = chartData.fold(0.0, (m, d) {
       final s = (d['setor'] as num).toDouble();
       final a = (d['ambil'] as num).toDouble();
-      return m < s ? (m < a ? a : m) : (m < a ? a : m);
+      final localMax = s > a ? s : a;
+      return m > localMax ? m : localMax;
     });
     if (maxVal == 0) return const SizedBox.shrink();
 

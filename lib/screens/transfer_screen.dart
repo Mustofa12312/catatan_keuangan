@@ -32,6 +32,7 @@ class _TransferScreenState extends State<TransferScreen> {
   bool _isOrangLuar = false;
   bool _loading = false;
   String _rawNominal = '';
+  DateTime _tanggal = DateTime.now();
 
   @override
   void initState() {
@@ -45,6 +46,25 @@ class _TransferScreenState extends State<TransferScreen> {
       // Exclude sender
       _penabungList = list.where((p) => p.id != widget.senderId).toList();
     });
+  }
+
+  Future<void> _pilihTanggal() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _tanggal,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (ctx, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF4F8EF7),
+            surface: Color(0xFF1A2840),
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _tanggal = picked);
   }
 
   void _onNominalChanged(String value) {
@@ -97,7 +117,7 @@ class _TransferScreenState extends State<TransferScreen> {
     setState(() => _loading = true);
 
     try {
-      final tgl = DateTime.now().toIso8601String();
+      final tgl = _tanggal.toIso8601String();
       final catatan = _catatanCtrl.text.trim();
       
       if (_isOrangLuar) {
@@ -247,22 +267,48 @@ class _TransferScreenState extends State<TransferScreen> {
                 ),
               ),
 
-            const SizedBox(height: 24),
-            _buildInput(
-              controller: _nominalCtrl,
-              label: 'Nominal',
-              hint: 'Rp 0',
-              icon: Icons.attach_money_rounded,
-              isNumber: true,
-              onChanged: _onNominalChanged,
-            ),
-            const SizedBox(height: 24),
-            _buildInput(
-              controller: _catatanCtrl,
-              label: 'Catatan (Opsional)',
-              hint: 'Tulis alasan pinjaman',
-              icon: Icons.notes_rounded,
-            ),
+             const SizedBox(height: 24),
+             _buildInput(
+               controller: _nominalCtrl,
+               label: 'Nominal',
+               hint: 'Rp 0',
+               icon: Icons.attach_money_rounded,
+               isNumber: true,
+               onChanged: _onNominalChanged,
+             ),
+             const SizedBox(height: 24),
+             const Text('Tanggal', style: TextStyle(color: Color(0xFF8899BB), fontSize: 13, fontWeight: FontWeight.w500)),
+             const SizedBox(height: 8),
+             GestureDetector(
+               onTap: _pilihTanggal,
+               child: Container(
+                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+                 decoration: BoxDecoration(
+                   color: const Color(0xFF1A2840),
+                   borderRadius: BorderRadius.circular(16),
+                   border: Border.all(color: const Color(0xFF2A3A50).withValues(alpha: 0.5)),
+                 ),
+                 child: Row(
+                   children: [
+                     const Icon(Icons.calendar_today_outlined, color: Color(0xFF8899BB), size: 18),
+                     const SizedBox(width: 10),
+                     Text(
+                       '${_tanggal.day.toString().padLeft(2, '0')}/${_tanggal.month.toString().padLeft(2, '0')}/${_tanggal.year}',
+                       style: const TextStyle(color: Colors.white, fontSize: 14),
+                     ),
+                     const Spacer(),
+                     const Icon(Icons.edit_calendar_outlined, color: Color(0xFF4F8EF7), size: 16),
+                   ],
+                 ),
+               ),
+             ),
+             const SizedBox(height: 24),
+             _buildInput(
+               controller: _catatanCtrl,
+               label: 'Catatan (Opsional)',
+               hint: 'Tulis alasan pinjaman',
+               icon: Icons.notes_rounded,
+             ),
             const SizedBox(height: 40),
 
             SizedBox(

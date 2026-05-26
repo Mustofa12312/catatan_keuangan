@@ -241,4 +241,187 @@ class PdfHelper {
       oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
     );
   }
+
+  static Future<File> generateGlobalStatement({
+    required List<Map<String, dynamic>> rekapList,
+    required int grandTotalSaldo,
+    required int grandTotalSetor,
+    required int grandTotalAmbil,
+  }) async {
+    final pdf = pw.Document();
+    final fontRegular = pw.Font.helvetica();
+    final fontBold = pw.Font.helveticaBold();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          final List<List<String>> tableData = [];
+          for (var i = 0; i < rekapList.length; i++) {
+            final r = rekapList[i];
+            tableData.add([
+              (i + 1).toString(),
+              (r['nama'] as String).toUpperCase(),
+              formatRupiah((r['total_setor'] as num).toInt()),
+              formatRupiah((r['total_ambil'] as num).toInt()),
+              formatRupiah((r['saldo'] as num).toInt()),
+              r['jumlah_transaksi'].toString(),
+            ]);
+          }
+
+          return [
+            // ── HEADER ───────────────────────────────────────────────────────
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('TABUNGAN TITIPAN',
+                        style: pw.TextStyle(
+                            font: fontBold,
+                            fontSize: 24,
+                            color: PdfColors.blue800)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Laporan Rekapitulasi Global',
+                        style: pw.TextStyle(
+                            font: fontRegular,
+                            fontSize: 14,
+                            color: PdfColors.grey700)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('Tanggal Cetak',
+                        style: pw.TextStyle(
+                            font: fontRegular,
+                            fontSize: 10,
+                            color: PdfColors.grey600)),
+                    pw.Text(formatTanggal(DateTime.now().toIso8601String()),
+                        style: pw.TextStyle(font: fontBold, fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+            pw.Divider(color: PdfColors.grey300, thickness: 2),
+            pw.SizedBox(height: 16),
+
+            // ── RINGKASAN KEUANGAN GLOBAL ────────────────────────────────────
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.blue50,
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: PdfColors.blue200),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('TOTAL DANA TITIPAN AKTIF',
+                      style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 10,
+                          color: PdfColors.grey700)),
+                  pw.Text(formatRupiah(grandTotalSaldo),
+                      style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 24,
+                          color: PdfColors.blue900)),
+                  pw.SizedBox(height: 12),
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Total Dana Masuk:',
+                                style: pw.TextStyle(font: fontRegular, fontSize: 10)),
+                            pw.Text(formatRupiah(grandTotalSetor),
+                                style: pw.TextStyle(
+                                    font: fontBold,
+                                    fontSize: 12,
+                                    color: PdfColors.green700)),
+                          ],
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Total Dana Keluar:',
+                                style: pw.TextStyle(font: fontRegular, fontSize: 10)),
+                            pw.Text(formatRupiah(grandTotalAmbil),
+                                style: pw.TextStyle(
+                                    font: fontBold,
+                                    fontSize: 12,
+                                    color: PdfColors.red700)),
+                          ],
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Jumlah Penabung:',
+                                style: pw.TextStyle(font: fontRegular, fontSize: 10)),
+                            pw.Text('${rekapList.length} Orang',
+                                style: pw.TextStyle(
+                                    font: fontBold,
+                                    fontSize: 12,
+                                    color: PdfColors.black)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 24),
+
+            // ── TABEL DAFTAR PENABUNG ─────────────────────────────────────────
+            pw.Text('REKAPITULASI DETAIL PENABUNG',
+                style: pw.TextStyle(
+                    font: fontBold, fontSize: 13, color: PdfColors.black)),
+            pw.SizedBox(height: 10),
+            pw.TableHelper.fromTextArray(
+              headers: ['NO', 'NAMA PENABUNG', 'TOTAL SETOR', 'TOTAL AMBIL', 'SALDO AKHIR', 'TX'],
+              data: tableData,
+              headerStyle: pw.TextStyle(
+                  font: fontBold, fontSize: 9, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.blue800),
+              cellStyle: pw.TextStyle(font: fontRegular, fontSize: 9),
+              cellHeight: 22,
+              cellAlignments: {
+                0: pw.Alignment.center,
+                1: pw.Alignment.centerLeft,
+                2: pw.Alignment.centerRight,
+                3: pw.Alignment.centerRight,
+                4: pw.Alignment.centerRight,
+                5: pw.Alignment.center,
+              },
+              columnWidths: {
+                0: const pw.FlexColumnWidth(0.8),
+                1: const pw.FlexColumnWidth(3),
+                2: const pw.FlexColumnWidth(2),
+                3: const pw.FlexColumnWidth(2),
+                4: const pw.FlexColumnWidth(2),
+                5: const pw.FlexColumnWidth(0.8),
+              },
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
+            ),
+          ];
+        },
+      ),
+    );
+
+    final output = await getTemporaryDirectory();
+    final file = File('${output.path}/laporan_rekap_global_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await file.writeAsBytes(await pdf.save());
+    return file;
+  }
 }

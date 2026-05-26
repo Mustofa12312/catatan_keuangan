@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'pin_lock_screen.dart';
 import '../main.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,21 +23,45 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 3500), () {});
     
     if (!mounted) return;
-    
-    // Ganti ke halaman utama dengan efek fade
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const MainNavigation(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 800),
-      ),
-    );
+
+    final prefs = await SharedPreferences.getInstance();
+    final lockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+
+    if (!mounted) return;
+
+    if (lockEnabled) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PinLockScreen(
+            mode: PinLockMode.validate,
+            onSuccess: (unlocked) {
+              if (unlocked) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainNavigation()),
+                );
+              }
+            },
+          ),
+        ),
+      );
+    } else {
+      // Ganti ke halaman utama dengan efek fade
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const MainNavigation(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 800),
+        ),
+      );
+    }
   }
 
   @override
