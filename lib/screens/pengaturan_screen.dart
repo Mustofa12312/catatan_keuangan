@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import '../utils/backup_helper.dart';
+import '../utils/google_drive_helper.dart';
 import '../utils/pdf_helper.dart';
 import '../database/database_helper.dart';
 import 'pin_lock_screen.dart';
@@ -106,6 +107,57 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
       _tampilkanPesan('Berhasil memulihkan data backup!', true);
     } else {
       _tampilkanPesan('Gagal! File tidak valid atau dibatalkan.', false);
+    }
+    setState(() => _loading = false);
+  }
+
+  Future<void> _backupToDrive() async {
+    setState(() => _loading = true);
+    final sukses = await GoogleDriveHelper.backupToDrive();
+    if (sukses) {
+      _tampilkanPesan('Berhasil upload backup ke Google Drive!', true);
+    } else {
+      _tampilkanPesan('Gagal backup ke Google Drive.', false);
+    }
+    setState(() => _loading = false);
+  }
+
+  Future<void> _restoreFromDrive() async {
+    final konfirmasi = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2840),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Impor dari Google Drive',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        content: const Text(
+            'PERINGATAN: Semua data saat ini akan DIHAPUS dan diganti dengan data dari Google Drive.\n\nLanjutkan?',
+            style: TextStyle(color: Color(0xFF8899BB))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal', style: TextStyle(color: Color(0xFF8899BB))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF5350),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ya, Ganti Data', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (konfirmasi != true) return;
+
+    setState(() => _loading = true);
+    final sukses = await GoogleDriveHelper.restoreFromDrive();
+    if (sukses) {
+      _tampilkanPesan('Berhasil memulihkan data dari Google Drive!', true);
+    } else {
+      _tampilkanPesan('Gagal! File tidak ditemukan di Google Drive.', false);
     }
     setState(() => _loading = false);
   }
@@ -317,17 +369,33 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
                 const SizedBox(height: 12),
                 _MenuTile(
                   icon: Icons.cloud_upload_outlined,
-                  color: const Color(0xFF66BB6A),
-                  title: 'Backup Manual (Ekspor JSON)',
-                  subtitle: 'Simpan semua data penabung ke file JSON ringan.',
-                  onTap: _backup,
+                  color: const Color(0xFF4285F4),
+                  title: 'Backup ke Google Drive',
+                  subtitle: 'Simpan data dengan aman ke akun Google Drive Anda.',
+                  onTap: _backupToDrive,
                 ),
                 const SizedBox(height: 12),
                 _MenuTile(
                   icon: Icons.cloud_download_outlined,
+                  color: const Color(0xFF4285F4),
+                  title: 'Pulihkan dari Google Drive',
+                  subtitle: 'Kembalikan data dari backup Google Drive sebelumnya.',
+                  onTap: _restoreFromDrive,
+                ),
+                const SizedBox(height: 12),
+                _MenuTile(
+                  icon: Icons.save_alt_outlined,
+                  color: const Color(0xFF66BB6A),
+                  title: 'Ekspor Lokal (JSON)',
+                  subtitle: 'Simpan semua data penabung ke memori HP.',
+                  onTap: _backup,
+                ),
+                const SizedBox(height: 12),
+                _MenuTile(
+                  icon: Icons.restore_page_outlined,
                   color: const Color(0xFFFFA726),
-                  title: 'Pulihkan Manual (Impor JSON)',
-                  subtitle: 'Kembalikan data dari file backup JSON sebelumnya.',
+                  title: 'Impor Lokal (JSON)',
+                  subtitle: 'Kembalikan data dari file JSON di memori HP.',
                   onTap: _restore,
                 ),
                 const SizedBox(height: 12),
